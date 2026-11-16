@@ -1,191 +1,170 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
+from datetime import datetime
 import json
 import os
-from datetime import datetime
 
-FICHEIRO_DADOS = "dados_sreu.json"
 
-class SistemaSREU:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("SREU - Sistema de Registo Eletrónico de Utentes")
-        self.root.geometry("750x520")
-        self.root.configure(bg="#f0f4f8")
+DB_FILE = "database.json"
+CONFIG_FILE = "config.json"
 
-        self.utentes = self.carregar_dados()
-        self.criar_interface()
-        self.atualizar_tabela()
-
-    def carregar_dados(self):
-        if os.path.exists(FICHEIRO_DADOS):
-            try:
-                with open(FICHEIRO_DADOS, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except:
-                return []
-        return []
-
-    def guardar_dados(self):
-        with open(FICHEIRO_DADOS, "w", encoding="utf-8") as f:
-            json.dump(self.utentes, f, ensure_ascii=False, indent=4)
-
-    def criar_interface(self):
-        # Cabeçalho
-        header = tk.Frame(self.root, bg="#0d6efd", pady=12)
-        header.pack(fill="x")
-        tk.Label(header, text="SREU - Sistema de Registo Eletrónico de Utentes",
-                 font=("Arial", 14, "bold"), bg="#0d6efd", fg="white").pack()
-
-        # Área de Cadastro
-        frame_form = tk.LabelFrame(self.root, text="Registar Novo Utente", font=("Arial", 10, "bold"),
-                                   bg="#f0f4f8", padx=15, pady=10)
-        frame_form.pack(fill="x", padx=20, pady=10)
-
-        tk.Label(frame_form, text="Nome Completo:", bg="#f0f4f8").grid(row=0, column=0, sticky="w", pady=5)
-        self.entry_nome = tk.Entry(frame_form, width=35)
-        self.entry_nome.grid(row=0, column=1, padx=10, pady=5)
-
-        tk.Label(frame_form, text="Telefone:", bg="#f0f4f8").grid(row=0, column=2, sticky="w", pady=5)
-        self.entry_tel = tk.Entry(frame_form, width=18)
-        self.entry_tel.grid(row=0, column=3, padx=10, pady=5)
-
-        tk.Label(frame_form, text="NIF (Opcional):", bg="#f0f4f8").grid(row=1, column=0, sticky="w", pady=5)
-        self.entry_nif = tk.Entry(frame_form, width=20)
-        self.entry_nif.grid(row=1, column=1, sticky="w", padx=10, pady=5)
-
-        btn_registar = tk.Button(frame_form, text="Guardar Utente", bg="#198754", fg="white",
-                                 font=("Arial", 9, "bold"), padx=15, command=self.registar_utente)
-        btn_registar.grid(row=1, column=3, sticky="e", pady=5)
-
-        # Área de Pesquisa
-        frame_pesquisa = tk.Frame(self.root, bg="#f0f4f8", padx=20)
-        frame_pesquisa.pack(fill="x", pady=5)
-        tk.Label(frame_pesquisa, text="Pesquisar (Nome ou N.º):", bg="#f0f4f8").pack(side="left")
-        self.entry_pesquisa = tk.Entry(frame_pesquisa, width=30)
-        self.entry_pesquisa.pack(side="left", padx=10)
-        self.entry_pesquisa.bind("<KeyRelease>", lambda e: self.atualizar_tabela())
-
-        # Tabela de Utentes
-        frame_tabela = tk.Frame(self.root, padx=20, pady=5, bg="#f0f4f8")
-        frame_tabela.pack(fill="both", expand=True)
-
-        colunas = ("numero", "nome", "telefone", "nif", "consultas")
-        self.tree = ttk.Treeview(frame_tabela, columns=colunas, show="headings", height=10)
-        self.tree.heading("numero", text="N.º Registo")
-        self.tree.heading("nome", text="Nome Completo")
-        self.tree.heading("telefone", text="Telefone")
-        self.tree.heading("nif", text="NIF")
-        self.tree.heading("consultas", text="Total Consultas")
-
-        self.tree.column("numero", width=130, anchor="center")
-        self.tree.column("nome", width=230)
-        self.tree.column("telefone", width=110, anchor="center")
-        self.tree.column("nif", width=110, anchor="center")
-        self.tree.column("consultas", width=110, anchor="center")
-        self.tree.pack(fill="both", expand=True)
-
-        # Botões de Ação
-        frame_acoes = tk.Frame(self.root, bg="#f0f4f8", pady=10)
-        frame_acoes.pack()
-
-        tk.Button(frame_acoes, text="Abrir Ficha / Registar Consulta", bg="#0d6efd", fg="white",
-                  font=("Arial", 10, "bold"), padx=15, command=self.abrir_ficha).pack(side="left", padx=10)
-
-    def registar_utente(self):
-        nome = self.entry_nome.get().strip()
-        tel = self.entry_tel.get().strip()
-        nif = self.entry_nif.get().strip()
-
-        if not nome:
-            messagebox.showwarning("Aviso", "O nome do utente é obrigatório!")
-            return
-
-        num_registo = f"SREU-{datetime.now().year}-{len(self.utentes) + 1:03d}"
-        novo = {
-            "numero": num_registo,
-            "nome": nome,
-            "telefone": tel if tel else "N/A",
-            "nif": nif if nif else "N/A",
-            "consultas": []
+def inicializar_sistema():
+    """Inicializa os ficheiros de dados se não existirem."""
+    if not os.path.exists(DB_FILE):
+        dados_iniciais = {
+            "utentes": [
+                {
+                    "id": "UT001",
+                    "nome": "João Manuel",
+                    "data_nascimento": "1990-05-12",
+                    "provincia": "Uíge",
+                    "historico_clinico": [
+                        {
+                            "data": "2026-11-10 09:30",
+                            "hospital": "Hospital Provincial do Uíge",
+                            "diagnostico": "Malária Simples",
+                            "prescricao": "Artemeter+Lumefantrine",
+                            "medico": "Dr. Carlos Silva"
+                        }
+                    ]
+                }
+            ],
+            "hospitais": [
+                {"codigo": "HPU", "nome": "Hospital Provincial do Uíge", "municipio": "Uíge"},
+                {"codigo": "CSN", "nome": "Centro de Saúde Negage", "municipio": "Negage"}
+            ]
         }
-        self.utentes.append(novo)
-        self.guardar_dados()
+        with open(DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(dados_iniciais, f, ensure_ascii=False, indent=4)
+            
+    if not os.path.exists(CONFIG_FILE):
+        config_inicial = {
+            "sistema": "Sistema Integrado de Informação de Saúde - Uíge",
+            "versao": "1.0.0",
+            "modo": "Produção Provincial"
+        }
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(config_inicial, f, ensure_ascii=False, indent=4)
 
-        self.entry_nome.delete(0, tk.END)
-        self.entry_tel.delete(0, tk.END)
-        self.entry_nif.delete(0, tk.END)
-        self.atualizar_tabela()
-        messagebox.showinfo("Sucesso", f"Utente registado com sucesso!\nNúmero Único: {num_registo}")
+def carregar_dados():
+    """Carrega os dados do ficheiro JSON."""
+    with open(DB_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-    def atualizar_tabela(self):
-        for item in self.tree.get_children():
-            self.tree.delete(item)
+def guardar_dados(dados):
+    """Guarda os dados atualizados no ficheiro JSON."""
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(dados, f, ensure_ascii=False, indent=4)
 
-        termo = self.entry_pesquisa.get().lower()
-        for u in self.utentes:
-            if termo in u["nome"].lower() or termo in u["numero"].lower():
-                self.tree.insert("", "end", values=(
-                    u["numero"], u["nome"], u["telefone"], u["nif"], len(u["consultas"])
-                ))
+def consultar_historico():
+    """Consulta o histórico clínico de um utente pelo ID."""
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print("=== CONSULTA DE HISTÓRICO CLÍNICO (REU) ===")
+    id_utente = input("Digite o ID do utente (ex: UT001): ").strip()
+    
+    dados = carregar_dados()
+    utente_encontrado = None
+    
+    for utente in dados["utentes"]:
+        if utente["id"].lower() == id_utente.lower():
+            utente_encontrado = utente
+            break
+            
+    if utente_encontrado:
+        print(f"\n[Utente Encontrado] Nome: {utente_encontrado['nome']} | Nascimento: {utente_encontrado['data_nascimento']} | Província: {utente_encontrado['provincia']}")
+        print("-" * 60)
+        print("Histórico de Episódios Clínicos:")
+        for idx, episodio in enumerate(utente_encontrado["historico_clinico"], 1):
+            print(f"  {idx}. Data: {episodio['data']}")
+            print(f"     Unidade: {episodio['hospital']}")
+            print(f"     Diagnóstico: {episodio['diagnostico']}")
+            print(f"     Prescrição: {episodio['prescricao']}")
+            print(f"     Médico Responsável: {episodio['medico']}")
+            print("-" * 60)
+    else:
+        print("\n[Aviso] Utente não encontrado no sistema provincial.")
+    
+    input("\nPressione Enter para continuar...")
 
-    def abrir_ficha(self):
-        selecionado = self.tree.selection()
-        if not selecionado:
-            messagebox.showwarning("Aviso", "Selecione primeiro um utente na tabela!")
-            return
+def registar_episodio():
+    """Adiciona um novo registo clínico ao histórico do utente."""
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print("=== REGISTO DE NOVO EPISÓDIO CLÍNICO ===")
+    id_utente = input("ID do Utente (ex: UT001): ").strip()
+    
+    dados = carregar_dados()
+    utente_encontrado = None
+    
+    for utente in dados["utentes"]:
+        if utente["id"].lower() == id_utente.lower():
+            utente_encontrado = utente
+            break
+            
+    if not utente_encontrado:
+        print("\n[Erro] Utente não encontrado. Registe o utente primeiro.")
+        input("\nPressione Enter para continuar...")
+        return
 
-        valores = self.tree.item(selecionado[0], "values")
-        num_registo = valores[0]
-        utente = next((u for u in self.utentes if u["numero"] == num_registo), None)
+    hospital = input("Nome da Unidade Sanitária / Hospital: ").strip()
+    diagnostico = input("Diagnóstico Clínico: ").strip()
+    prescricao = input("Medicação / Prescrição: ").strip()
+    medico = input("Nome do Médico: ").strip()
+    
+    # Utilização da biblioteca datetime para carimbo de data e hora atual
+    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M")
+    
+    novo_registo = {
+        "data": data_atual,
+        "hospital": hospital,
+        "diagnostico": diagnostico,
+        "prescricao": prescricao,
+        "medico": medico
+    }
+    
+    utente_encontrado["historico_clinico"].append(novo_registo)
+    guardar_dados(dados)
+    
+    print(f"\n[Sucesso] Episódio clínico registado em {data_atual}!")
+    input("\nPressione Enter para continuar...")
 
-        if not utente:
-            return
+def listar_utentes():
+    """Lista todos os utentes registados na província."""
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print("=== LISTA DE UTENTES REGISTADOS (PROVÍNCIA DO UÍGE) ===")
+    dados = carregar_dados()
+    
+    for utente in dados["utentes"]:
+        print(f"ID: {utente['id']} | Nome: {utente['nome']} | Nasc: {utente['data_nascimento']} | Total Episódios: {len(utente['historico_clinico'])}")
+        
+    print("-" * 50)
+    input("\nPressione Enter para continuar...")
 
-        # Janela Secundária da Ficha Clínica
-        janela_ficha = tk.Toplevel(self.root)
-        janela_ficha.title(f"Ficha Clínica - {utente['nome']}")
-        janela_ficha.geometry("500x450")
-        janela_ficha.configure(bg="#ffffff")
-
-        tk.Label(janela_ficha, text=f"Utente: {utente['nome']}", font=("Arial", 12, "bold"), bg="#ffffff").pack(pady=(15, 2))
-        tk.Label(janela_ficha, text=f"N.º Registo: {utente['numero']} | Tel: {utente['telefone']} | NIF: {utente['nif']}",
-                 fg="#555555", bg="#ffffff").pack(pady=(0, 10))
-
-        tk.Label(janela_ficha, text="Nova Observação / Consulta:", font=("Arial", 10, "bold"), bg="#ffffff").pack(anchor="w", padx=20)
-        txt_obs = tk.Text(janela_ficha, height=4, width=50)
-        txt_obs.pack(padx=20, pady=5)
-
-        lista_historico = tk.Listbox(janela_ficha, width=65, height=10)
-
-        def atualizar_historico():
-            lista_historico.delete(0, tk.END)
-            for c in reversed(utente["consultas"]):
-                lista_historico.insert(tk.END, f"[{c['data']}] {c['observacao']}")
-
-        def adicionar_consulta():
-            obs = txt_obs.get("1.0", tk.END).strip()
-            if not obs:
-                messagebox.showwarning("Aviso", "Escreva uma observação clínica.", parent=janela_ficha)
-                return
-            utente["consultas"].append({
-                "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                "observacao": obs
-            })
-            self.guardar_dados()
-            txt_obs.delete("1.0", tk.END)
-            atualizar_historico()
-            self.atualizar_tabela()
-            messagebox.showinfo("Sucesso", "Consulta registada no histórico!", parent=janela_ficha)
-
-        tk.Button(janela_ficha, text="Adicionar Consulta ao Histórico", bg="#198754", fg="white",
-                  font=("Arial", 9, "bold"), command=adicionar_consulta).pack(pady=5)
-
-        tk.Label(janela_ficha, text="Histórico Clínico:", font=("Arial", 10, "bold"), bg="#ffffff").pack(anchor="w", padx=20, pady=(10, 0))
-        lista_historico.pack(padx=20, pady=5)
-        atualizar_historico()
+def menu_principal():
+    """Interface principal baseada em consola."""
+    inicializar_sistema()
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print("==================================================")
+        print(" DIREÇÃO PROVINCIAL DA SAÚDE DO UÍGE")
+        print(" Sistema Integrado de Informação (Módulo REU)")
+        print("==================================================")
+        print("1. Consultar Histórico Clínico de Utente")
+        print("2. Registar Novo Episódio Clínico")
+        print("3. Listar Todos os Utentes")
+        print("4. Sair")
+        print("==================================================")
+        
+        opcao = input("Selecione uma opção (1-4): ").strip()
+        
+        if opcao == "1":
+            consultar_historico()
+        elif opcao == "2":
+            registar_episodio()
+        elif opcao == "3":
+            listar_utentes()
+        elif opcao == "4":
+            print("\nA encerrar o sistema. Até breve!")
+            break
+        else:
+            input("\n[Erro] Opção inválida. Pressione Enter para tentar novamente...")
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = SistemaSREU(root)
-    root.mainloop()
+    menu_principal()
